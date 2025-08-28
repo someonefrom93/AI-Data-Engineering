@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  n8n:
+    image: n8nio/n8n:latest
+    restart: unless-stopped
+    ports:
+      - "5678:5678" # Forward the n8n port to your local machine
+    environment:
+      - N8N_HOST=localhost
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - N8N_ENCRYPTION_KEY={N8N_ENCRYPTION_KEY} # CHANGE THIS TO A RANDOM STRING FOR SECURITY!
+      # Optional: Set a base path if you want to version your workflows in git (HIGHLY RECOMMENDED)
+      - N8N_VERSION_CONTROL_ENABLED=true
+      - N8N_VERSION_CONTROL_BASE_DIR=/data/n8n_project
+    volumes:
+      # Persist n8n data, credentials, and workflows between container restarts
+      - n8n_data:/home/node/.n8n
+      # Mount a folder to easily export/import workflows from your git repo
+      - ./data:/data
+
+volumes:
+  n8n_data:
