@@ -1,0 +1,109 @@
+{
+  "name": "CSV to SQLite Ingestion (Pure Python)",
+  "nodes": [
+    {
+      "parameters": {
+        "authentication": "none",
+        "requestMethod": "GET",
+        "url": "https://drive.usercontent.google.com/u/0/uc?id=1RXj_3txgmyX2Wyt9ZwM7l4axfi5A6EC-&export=download",
+        "options": {}
+      },
+      "id": "http-request",
+      "name": "Download CSV",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        480,
+        300
+      ],
+      "continueOnFail": false
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "pythonCode": "from datetime import datetime\nimport json\n\n# Get binary data from HTTP request\nbinary_data = items[0]['binary']['data']\nfile_name = 'ads_spend_data.csv'\n\n# Convert to Python string if it's a JsProxy\nif hasattr(binary_data, 'toString'):\n    binary_data = binary_data.toString()\nelse:\n    binary_data = str(binary_data)\n\n# Prepare metadata\nmetadata = {\n    'load_date': datetime.now().isoformat(),\n    'source_file_name': file_name,\n    'binary_data': binary_data\n}\n\n# Return data for next node\nreturn [{\n    'json': metadata,\n    'binary': items[0]['binary']\n}]"
+      },
+      "id": "add-metadata",
+      "name": "Add Metadata",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        300
+      ],
+      "continueOnFail": false
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "pythonCode": "import sqlite3\nimport csv\nimport tempfile\nimport os\nimport base64\nfrom datetime import datetime\n\n# Get data from previous node\nload_date = items[0]['json']['load_date']\nsource_file_name = items[0]['json']['source_file_name']\nbinary_data_base64 = items[0]['json']['binary_data']\n\n# Convert to string and decode base64\nbinary_data = base64.b64decode(str(binary_data_base64))\n\n# Create temporary file\nwith tempfile.NamedTemporaryFile(mode='w+b', suffix='.csv', delete=False) as temp_file:\n    temp_file.write(binary_data)\n    csv_file_path = temp_file.name\n\n# Database path in persistent volume\ndb_path = '/data/data_warehouse.sqlite'\n\ntry:\n    # Connect to SQLite database\n    conn = sqlite3.connect(db_path)\n    cursor = conn.cursor()\n    \n    # Read CSV to get headers\n    with open(csv_file_path, 'r', encoding='utf-8') as csv_file:\n        csv_reader = csv.reader(csv_file)\n        headers = next(csv_reader)\n    \n    # Create main data table\n    cursor.execute('''\n    CREATE TABLE IF NOT EXISTS ads_spend_data (\n        id INTEGER PRIMARY KEY AUTOINCREMENT,\n        load_timestamp TEXT,\n        source_file TEXT\n    )\n    ''')\n    \n    # Add dynamic columns based on CSV headers\n    for header in headers:\n        try:\n            cursor.execute('ALTER TABLE ads_spend_data ADD COLUMN \"' + header + '\" TEXT')\n        except sqlite3.OperationalError:\n            # Column already exists, which is fine\n            pass\n    \n    # Read and insert data\n    with open(csv_file_path, 'r', encoding='utf-8') as csv_file:\n        csv_reader = csv.DictReader(csv_file)\n        \n        row_count = 0\n        for row in csv_reader:\n            # Prepare column names and values\n            columns = ['load_timestamp', 'source_file'] + list(row.keys())\n            values = [load_date, source_file_name] + list(row.values())\n            \n            # Create insert statement\n            placeholders = ', '.join(['?'] * len(columns))\n            column_names = ', '.join(['\"' + col + '\"' for col in columns])\n            \n            cursor.execute('INSERT INTO ads_spend_data (' + column_names + ') VALUES (' + placeholders + ')', values)\n            row_count += 1\n    \n    # Create simple provenance table\n    cursor.execute('''\n    CREATE TABLE IF NOT EXISTS load_history (\n        id INTEGER PRIMARY KEY AUTOINCREMENT,\n        load_time TEXT,\n        source_file TEXT,\n        rows_loaded INTEGER\n    )\n    ''')\n    \n    # Record this load\n    cursor.execute('INSERT INTO load_history (load_time, source_file, rows_loaded) VALUES (?, ?, ?)', \n                  (datetime.now().isoformat(), source_file_name, row_count))\n    \n    conn.commit()\n    conn.close()\n    \n    print('Successfully loaded ' + str(row_count) + ' rows into SQLite database')\n    \n    output = [{\n        'json': {\n            'message': 'Loaded ' + str(row_count) + ' rows from ' + source_file_name,\n            'rows_loaded': row_count,\n            'database_path': db_path,\n            'status': 'success'\n        }\n    }]\n\nfinally:\n    # Clean up temporary file\n    if os.path.exists(csv_file_path):\n        os.unlink(csv_file_path)\n\nreturn output"
+      },
+      "id": "sqlite-ingestion",
+      "name": "Ingest to SQLite",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        300
+      ],
+      "continueOnFail": false
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "pythonCode": "import sqlite3\nimport subprocess\n\n# Database path\ndb_path = '/data/data_warehouse.sqlite'\n\ntry:\n    # Connect to database to verify data\n    conn = sqlite3.connect(db_path)\n    cursor = conn.cursor()\n    \n    # Count rows in main table\n    cursor.execute('SELECT COUNT(*) FROM ads_spend_data')\n    row_count = cursor.fetchone()[0]\n    \n    # Get latest load history\n    cursor.execute('SELECT * FROM load_history ORDER BY load_time DESC LIMIT 1')\n    latest_load = cursor.fetchone()\n    \n    conn.close()\n    \n    print('Total rows in database: ' + str(row_count))\n    if latest_load:\n        print('Latest load: ID=' + str(latest_load[0]) + ', Time=' + str(latest_load[1]) + ', File=' + str(latest_load[2]) + ', Rows=' + str(latest_load[3]))\n    \n    # Return verification results\n    output = [{\n        'json': {\n            'total_rows': row_count,\n            'latest_load_time': latest_load[1] if latest_load else None,\n            'latest_source_file': latest_load[2] if latest_load else None,\n            'latest_rows_loaded': latest_load[3] if latest_load else None,\n            'verification_status': 'success'\n        }\n    }]\n    \nexcept Exception as e:\n    print('Verification error: ' + str(e))\n    output = [{\n        'json': {\n            'verification_status': 'failed',\n            'error': str(e)\n        }\n    }]\n\nreturn output"
+      },
+      "id": "verify-load",
+      "name": "Verify Load",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1080,
+        300
+      ],
+      "continueOnFail": false
+    }
+  ],
+  "connections": {
+    "Download CSV": {
+      "main": [
+        [
+          {
+            "node": "Add Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add Metadata": {
+      "main": [
+        [
+          {
+            "node": "Ingest to SQLite",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ingest to SQLite": {
+      "main": [
+        [
+          {
+            "node": "Verify Load",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "pinData": null,
+  "versionId": "1",
+  "triggerCount": 1
+}
