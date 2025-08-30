@@ -17,6 +17,7 @@ n8n_data/
 # Environment variables file - CRITICAL to exclude this!
 .env
 .env.local
+n8n/.env
 
 # DuckDB - the database file itself should not be in git
 *.db
