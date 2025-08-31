@@ -17,8 +17,14 @@ This project provides an automated pipeline for collecting and analyzing marketi
 
 ## 🏗️ Architecture
 
+For data ingestion
 ```
-Data Sources → n8n Workflow → Supabase (PostgreSQL) → Analytics & Reporting
+Data Sources → n8n Workflow → Supabase (PostgreSQL) → Analytics & Reporting at RDBMS
+```
+For NLQ:
+```
+Chat Trigger → AI Agent → Tools (PostgreSQL execution) → AI Agent query result processing for report
+                        → Postgres memory AI context
 ```
 
 ## 📁 Key Components
