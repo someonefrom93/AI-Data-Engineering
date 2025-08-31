@@ -1,0 +1,284 @@
+{
+  "name": "My workflow 4",
+  "nodes": [
+    {
+      "parameters": {
+        "url": "https://drive.usercontent.google.com/u/0/uc?id=1RXj_3txgmyX2Wyt9ZwM7l4axfi5A6EC-&export=download",
+        "options": {}
+      },
+      "id": "06a557e7-a053-4295-839b-7c82ed807f38",
+      "name": "Download CSV",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        -240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -320,
+        240
+      ],
+      "id": "a9525bb6-d003-42a0-b9cf-f900c8d95271",
+      "name": "When chat message received",
+      "webhookId": "313cfaec-96cc-4145-b5e8-fc6f67205903"
+    },
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "=You are an enterprise assistant helping users access information.\n\nYou are tasked with answering questions using the information within the database.\n\nThis is the adds_spenses table information that you'll use to build report:\n\"\n[id bigint (PK), date timestamp with time zone, platform character varying, account character varying, campaign character varying, country character varying, device character varying, spend real, clicks bigint, impressions real, conversions bigint, campaign_date date\n\"\"\n\n\nWhen applying WHERE clauses, you should run SELECT DISTINCT queries (LIMIT 100) on the relevant fields first to understand the valid options. This applies even if the user provides a specific value-you must verify that the value exists in the data before using it.\n\nDo NOT run SELECT DISTINCT queries for ID columns.\n\nYour goal is to provide an accurate answer based on this information ONLY. Your aim is to construct a single SQL query to to join all of the relevant tables for the required data, unless you require SQL queries to get distinct values.\n\nIf you cannot answer the question using the provided information, or if no information is returned from the vector store, say:\n\n\"Sorry, I don't know.\""
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        -32,
+        240
+      ],
+      "id": "7aeefaff-58e7-4ae4-a7b6-5707b2bf2ac5",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": "deepseek-reasoner",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatDeepSeek",
+      "typeVersion": 1,
+      "position": [
+        -144,
+        384
+      ],
+      "id": "3772e1b7-1098-4ae2-98fd-da5e6564711e",
+      "name": "DeepSeek Chat Model",
+      "credentials": {
+        "deepSeekApi": {
+          "id": "dvchFQy0hpYRGuzQ",
+          "name": "DeepSeek account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+      "typeVersion": 1.3,
+      "position": [
+        16,
+        432
+      ],
+      "id": "a5d9db72-e3a9-4bf0-a234-b14d32fbc0bc",
+      "name": "Postgres Chat Memory",
+      "credentials": {
+        "postgres": {
+          "id": "brkJqNtI4qzcKzCe",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "6c16328a-c417-4f73-8335-2eb96f862de5",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -464,
+        0
+      ],
+      "id": "ad086b67-488c-45c8-8641-7c75ac295098",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "tableId": "adds_spenses",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "campaign_date",
+              "fieldValue": "={{ $json.date }}"
+            },
+            {
+              "fieldId": "platform",
+              "fieldValue": "={{ $json.platform }}"
+            },
+            {
+              "fieldId": "account",
+              "fieldValue": "={{ $json.account }}"
+            },
+            {
+              "fieldId": "campaign",
+              "fieldValue": "={{ $json.campaign }}"
+            },
+            {
+              "fieldId": "country",
+              "fieldValue": "={{ $json.country }}"
+            },
+            {
+              "fieldId": "device",
+              "fieldValue": "={{ $json.device }}"
+            },
+            {
+              "fieldId": "spend",
+              "fieldValue": "={{ $json.spend }}"
+            },
+            {
+              "fieldId": "clicks",
+              "fieldValue": "={{ $json.clicks }}"
+            },
+            {
+              "fieldId": "impressions",
+              "fieldValue": "={{ $json.impressions }}"
+            },
+            {
+              "fieldId": "conversions",
+              "fieldValue": "={{ $json.conversions }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        272,
+        0
+      ],
+      "id": "07dcd7cb-3e94-41b9-a321-21c785aea105",
+      "name": "Create a row",
+      "credentials": {
+        "supabaseApi": {
+          "id": "kXXCRLipv06ReP9E",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "{{ $fromAI('sql_statement') }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        320,
+        368
+      ],
+      "id": "60ccf877-bc58-438f-a391-23eea0f7a4d0",
+      "name": "Execute a SQL query in Postgres",
+      "credentials": {
+        "postgres": {
+          "id": "brkJqNtI4qzcKzCe",
+          "name": "Postgres account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Download CSV": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DeepSeek Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres Chat Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Download CSV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "Create a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute a SQL query in Postgres": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "365cfecc-0169-47d1-a4bc-fab585c440ff",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "5fab609e97caf85a95cad132b5c4a20271d41f64fb86f9c1bf9200f21d684f36"
+  },
+  "id": "BHjMg9bZ7IEe9hsZ",
+  "tags": []
+}
