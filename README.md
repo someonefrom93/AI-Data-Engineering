@@ -59,6 +59,7 @@ Try it out by running container at n8n and importing the workflow at n8n/workflo
 ```
 docker-compose up -d -build
 ```
+![Architecture Diagram](/images/Captura%20de%20pantalla%202025-08-30%20a%20la(s)%207.14.36 p.m..png)
 
 ## ⚡ Quick Start
 
