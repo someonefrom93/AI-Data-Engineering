@@ -13,6 +13,7 @@ This project provides an automated pipeline for collecting and analyzing marketi
 - **Advanced Analytics**: Calculate key marketing metrics (CAC, ROAS, conversions)
 - **Flexible Date Analysis**: Compare any two time periods with delta calculations
 - **SQL Function Library**: Reusable database functions for comprehensive analytics
+- **NQL Execution**: LLM integration with database to query report with human.
 
 ## 🏗️ Architecture
 
@@ -50,6 +51,14 @@ The `get_metrics_comparison()` function provides:
 - Input: Two customizable date ranges
 - Output: Comprehensive metrics with absolute values and percentage changes
 - Metrics: Spend, Conversions, Revenue, CAC, ROAS with delta calculations
+
+### 4. NLQ that delivers report based on human language request.
+Try it out by running container at n8n and importing the workflow at n8n/workflows. Also, it is requiered your own supabase and LLM credencials.
+- Deepseek node integrated but you can change this to your LLM preference. You only need get an API KEY.
+- Agent prompted to be an BI expert that builds SQL statements for reporting.
+```
+docker-compose up -d -build
+```
 
 ## ⚡ Quick Start
 
